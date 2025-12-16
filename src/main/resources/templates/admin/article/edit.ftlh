@@ -3,8 +3,8 @@
 <script src="/plugins/jqueryui/jquery-ui.min.js"></script>
 
 <!-- include summernote css/js-->
-<link href="/plugins/summernote0.9.0/summernote-bs5.css" rel="stylesheet">
-<script src="/plugins/summernote0.9.0/summernote-bs5.js"></script>
+<link href="/plugins/summernote0.9.0/summernote-bs5.min.css" rel="stylesheet">
+<script src="/plugins/summernote0.9.0/summernote-bs5.min.js"></script>
 <script src="/plugins/summernote0.9.0/lang/summernote-zh-CN.min.js"></script>
 
     <script>
