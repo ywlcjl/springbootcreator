@@ -12,12 +12,16 @@ import com.example.springbootcreator.util.CommonUtils;
 import com.example.springbootcreator.util.SecurityUtils;
 import com.example.springbootcreator.util.WebUtils;
 import jakarta.servlet.http.HttpSession;
+import org.im4java.core.ConvertCmd;
+import org.im4java.core.IMOperation;
+import org.im4java.process.Pipe;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -203,8 +207,8 @@ public class AttachController {
 
                     //如果与原来的图片不同类型则自动转换为原来图片的扩展名的图片
                     Attach attachSource = attachMapper.selectById(id);
-                    if (attachSource != null  && attachSource.getType() != null) {
-                        if(attachSource.getType().equals(fileExtension)) {
+                    if (attachSource != null && attachSource.getType() != null) {
+                        if (attachSource.getType().equals(fileExtension)) {
                             if (!Files.exists(filePath)) {
                                 Files.copy(file.getInputStream(), filePath);
                             } else {
@@ -218,17 +222,52 @@ public class AttachController {
                         } else {
                             //替换图片扩展名不同则自动转换
                             File targetFile = filePath.toFile();
-                            BufferedImage fileImage = ImageIO.read(file.getInputStream());
 
-                            if(attachSource.getType().equals("png")) {
-                                ImageIO.write(fileImage, "png", targetFile);
+                            if (CommonUtils.USE_IMAGEMAGICK) {
+                                //使用imagemagick进行格式转换
+                                try {
+                                    // 使用 im4java 构建转换命令
+                                    IMOperation op = new IMOperation();
 
-                            } else if(attachSource.getType().equals("jpg") || attachSource.getType().equals("jpeg")) {
-                                ImageIO.write(fileImage, "jpg", targetFile);
+                                    // "-" 代表从标准输入读取流（即 file.getInputStream()）
+                                    op.addImage("-");
+
+                                    // 设置输出路径，ImageMagick 会根据 targetFile 的后缀自动转换格式（png/jpg）
+                                    op.addImage(targetFile.getAbsolutePath().replace("\\", "/"));
+
+                                    ConvertCmd cmd = new ConvertCmd();
+                                    // Windows 环境下指定路径
+                                    if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                                        cmd.setSearchPath(CommonUtils.IMAGEMAGICK_PATH);
+                                    }
+
+                                    // 执行转换，直接通过 Pipe 将上传的文件流喂给 ImageMagick
+                                    Pipe pipeIn = new Pipe(file.getInputStream(), null);
+                                    cmd.setInputProvider(pipeIn);
+
+                                    cmd.run(op);
+
+                                    // 生成缩略图
+                                    CommonUtils.createThumb(filePathStr, "thumb");
+
+                                } catch (Exception e) {
+                                    fileMessage = "ImageMagick 转换失败: " + e.getMessage();
+                                    e.printStackTrace();
+                                }
                             } else {
-                                fileMessage = "上传图片不是png和jpg";
+                                //使用Java ImageIO进行格式转换
+                                BufferedImage fileImage = ImageIO.read(file.getInputStream());
+
+                                if (attachSource.getType().equals("png")) {
+                                    ImageIO.write(fileImage, "png", targetFile);
+
+                                } else if (attachSource.getType().equals("jpg") || attachSource.getType().equals("jpeg")) {
+                                    ImageIO.write(fileImage, "jpg", targetFile);
+                                } else {
+                                    fileMessage = "上传图片不是png和jpg";
+                                }
+                                CommonUtils.createThumb(filePathStr, "thumb");
                             }
-                            CommonUtils.createThumb(filePathStr, "thumb");
                         }
                     } else {
                         fileMessage = "新上传图片与原图文件扩展名不同";
@@ -327,7 +366,7 @@ public class AttachController {
 
         //检查权限
         if (!authService.hasPermission(WebUtils.PERMISSION_ID_ARTICLE)) {
-            response.put("message", "你的操作权限不足, 需要权限ID "+WebUtils.PERMISSION_ID_ARTICLE);
+            response.put("message", "你的操作权限不足, 需要权限ID " + WebUtils.PERMISSION_ID_ARTICLE);
             response.put("success", false);
             return response;
         }
@@ -431,7 +470,7 @@ public class AttachController {
 
         //检查权限
         if (!authService.hasPermission(WebUtils.PERMISSION_ID_ARTICLE)) {
-            response.put("message", "你的操作权限不足, 需要权限ID "+WebUtils.PERMISSION_ID_ARTICLE);
+            response.put("message", "你的操作权限不足, 需要权限ID " + WebUtils.PERMISSION_ID_ARTICLE);
             response.put("success", false);
             return response;
         }

@@ -1,11 +1,13 @@
 package com.example.springbootcreator.util;
 
-import javax.imageio.ImageIO;
+import net.coobird.thumbnailator.Thumbnails;
+import net.coobird.thumbnailator.resizers.configurations.ScalingMode;
+import org.im4java.core.ConvertCmd;
+import org.im4java.core.IM4JavaException;
+import org.im4java.core.IMOperation;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -101,7 +103,6 @@ public class CommonUtils {
         return newPath;
     }
 
-
     //该目录位置位于项目根目录,自动映射到resources/static, 为网站的/, 默认情况不要修改
     public static final String PATH_STATIC = "static";
     public static final String PATH_UPLOADS = "uploads";
@@ -111,6 +112,11 @@ public class CommonUtils {
     // 关键修改：分开定义最大宽度和最大高度
     public static final int MAX_THUMB_WIDTH = 480;
     public static final int MAX_THUMB_HEIGHT = 640;
+    //是否使用Imagemagick生成缩略图, true使用,false不使用, 如果使用,请自行安装Imagemagick 6.*, win10不要安装7.*, 因为路径问题会报错
+    public static final boolean USE_IMAGEMAGICK = true;
+    //Imagemagick的安装路径 "C:\\Program Files\\ImageMagick-6.9.13-Q16-HDRI"
+    //Imagemagick 6.* 下载网址 https://github.com/ImageMagick/ImageMagick6
+    public static final String IMAGEMAGICK_PATH = "C:\\Program Files\\ImageMagick-6.9.13-Q16-HDRI";
 
     public static boolean createThumb(String originalFilePath) {
         return createThumb(originalFilePath, "thumb");
@@ -136,69 +142,58 @@ public class CommonUtils {
             return false;
         }
 
-        String thumbSavePath = CommonUtils.getImageSizePath(originalFilePath);
+        String thumbSavePath = CommonUtils.getImageSizePath(originalFilePath, thumbName);
 
         try {
-            // 读取原始图像
-            BufferedImage originalImage = ImageIO.read(originalFile);
-            if (originalImage == null) {
-                System.err.println("无法识别或读取原始图像文件格式。");
-                return false;
-            }
-
-            int originalWidth = originalImage.getWidth();
-            int originalHeight = originalImage.getHeight();
-
-            // 计算缩放比例，保持纵横比
-            double scale = 1.0;
-
-            // 计算宽度和高度各自需要的缩放比例
-            double widthScale = (double) MAX_THUMB_WIDTH / originalWidth;
-            double heightScale = (double) MAX_THUMB_HEIGHT / originalHeight;
-
-            // 如果图片超过了任一最大尺寸，则取较小的缩放比例，以确保图片完整地放入限制框内
-            if (originalWidth > MAX_THUMB_WIDTH || originalHeight > MAX_THUMB_HEIGHT) {
-                scale = Math.min(widthScale, heightScale);
-            }
-
-            int newWidth = (int) (originalWidth * scale);
-            int newHeight = (int) (originalHeight * scale);
-
-            // 缩放图像
-            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
-
-            Graphics2D g = resizedImage.createGraphics();
-
-            // 设置渲染质量，这对于缩放质量至关重要
-            //VALUE_INTERPOLATION_BILINEAR 双线性快,质量差, VALUE_INTERPOLATION_BICUBIC 三线性
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            // 绘制缩放后的图像
-            g.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
-            g.dispose();
-
             // 确保目标保存目录存在
             Path thumbDirPath = Paths.get(thumbSavePath).getParent();
             if (thumbDirPath != null && !Files.exists(thumbDirPath)) {
                 Files.createDirectories(thumbDirPath);
             }
 
-            // 保存缩略图
-            String formatName = getFileExtension(thumbSavePath);
-//            if (formatName.equalsIgnoreCase("jpeg")) {
-//                formatName = "jpg";
-//            }
-
-            boolean success = ImageIO.write(resizedImage, formatName, new File(thumbSavePath));
-
-            return success;
+            //配置USE_IMAGEMAGICK true, 就是使用USE_IMAGEMAGICK生成缩略图
+            if (USE_IMAGEMAGICK) {
+                //使用ImageMagick生成缩略图
+                IMOperation op = new IMOperation();
+                // 处理 Windows 路径：将 \ 替换为 /，避免 im4java 传参时转义失败
+                String inputPath = originalFile.getAbsolutePath().replace("\\", "/");
+                String outputPath = new File(thumbSavePath).getAbsolutePath().replace("\\", "/");
+                op.addImage(inputPath);
+                // ImageMagick 的 resize 默认就是【等比例缩放】且【适合框内】
+                // 对应你之前的 Math.min(widthScale, heightScale) 逻辑
+                // 加 '>' 表示：只在原图大于目标尺寸时才缩小（防止小图被拉大模糊） ">"
+                op.resize(MAX_THUMB_WIDTH, MAX_THUMB_HEIGHT);
+                // 设置质量
+                op.quality(100.0);
+                op.addImage(outputPath);
+                //执行命令
+                ConvertCmd cmd = new ConvertCmd();
+                // 重要：如果在 Windows 环境，显式设置搜索路径防止 convert 冲突
+                if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                    //windows需要手写设置ImageMagick安装路径, i4java只支持ImageMagick 6, 如果用7会路径报错
+                    cmd.setSearchPath(IMAGEMAGICK_PATH);
+                }
+                cmd.run(op);
+                return true;
+            } else {
+                //使用Thumbnails 生成缩略图
+                Thumbnails.of(originalFile)
+                        .size(MAX_THUMB_WIDTH, MAX_THUMB_HEIGHT) // 自动保持比例，取宽高的最小值缩放
+                        .scalingMode(ScalingMode.BICUBIC)       // 高质量缩放模式
+                        .outputFormat(getFileExtension(originalFilePath)) // 保持原格式
+                        .outputQuality(1.0f)                // 质量压缩，0.8-0.9 之间 QPS 与质量平衡最好
+                        .toFile(thumbSavePath);
+                return true;
+            }
 
         } catch (IOException e) {
-            System.err.println("创建缩略图失败: " + e.getMessage());
+            System.err.println("文件读写失败: " + e.getMessage());
             e.printStackTrace();
             return false;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (IM4JavaException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -231,18 +226,6 @@ public class CommonUtils {
 
         // 创建目录
         Path fullPath = Paths.get(newRelativePath);
-
-//        try {
-//            // 检查目录是否存在，不存在则创建
-//            if (!Files.exists(fullPath)) {
-//                // Files.createDirectories() 抛出 IOException
-//                Files.createDirectories(fullPath);
-//            }
-//        } catch (IOException e) {
-//            // 关键修改：捕获受检异常，并将其封装为非受检异常抛出
-//            // 这样方法签名就不需要 throws IOException
-//            throw new UncheckedIOException("无法创建文件上传目录: " + fullPath, e);
-//        }
 
         return newRelativePath;
     }

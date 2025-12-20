@@ -7,10 +7,7 @@
         <div class="article-item">
             <div class="article-thumb">
                 <a href="/article/${article.id}">
-                    <img src="/
-                    <#if article.coverPic?? && article.coverPic != ''>
-                        ${article.coverPic}
-                    <#else>images/default_cover.png</#if>" style="max-width: 480px;">
+                    <img src="/<#if article.coverPic?? && article.coverPic != ''>${article.coverPic}<#else>images/default_cover.png</#if>" style="max-width: 480px;">
                 </a>
             </div>
             <div class="article-content">
