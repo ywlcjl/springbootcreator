@@ -113,7 +113,7 @@ public class CommonUtils {
     public static final int MAX_THUMB_WIDTH = 480;
     public static final int MAX_THUMB_HEIGHT = 640;
     //是否使用Imagemagick生成缩略图, true使用,false不使用, 如果使用,请自行安装Imagemagick 6.*, win10不要安装7.*, 因为路径问题会报错
-    public static final boolean USE_IMAGEMAGICK = true;
+    public static final boolean USE_IMAGEMAGICK = false;
     //Imagemagick的安装路径 "C:\\Program Files\\ImageMagick-6.9.13-Q16-HDRI"
     //Imagemagick 6.* 下载网址 https://github.com/ImageMagick/ImageMagick6
     public static final String IMAGEMAGICK_PATH = "C:\\Program Files\\ImageMagick-6.9.13-Q16-HDRI";
