@@ -5,7 +5,7 @@
 # 框架功能与技术结构如下:
 
 # 后端技术:
-* Java17~21, Springboot, MySQL8.0, Mybatis-plus, Freemarker
+* Java17~21, Springboot, MySQL8.0, Mybatis-plus, Freemarker, Im4java(Imagemagick图库功能)
 
 # 前端技术:
 * Bootstrap5, JQuery3, Summernote editor
@@ -28,6 +28,10 @@
 4. 等待Idea的gradle完成包依赖初始化后, 在Idea点击运行SpringbootApplication
 5. 使用浏览器访问http://localhost:8080, 顶部导航栏左边有CMS示例文章(可在后台文章管理中删除), 导航栏右边是系统后台登录入口.
 6. 管理员账号admin, 密码123456, 权限受限测试账号test, 密码123456
+
+非必要选项
+7. 本项目支持Imagemagick图库类的功能, 使用Imagemagick生成缩略图质量要比java标准库的ImageIO要好非常多,但需要您自己安装Imagemagick, 使用该功能需要在CommonUtils类里面找到静态变量USE_IMAGEMAGICK设置为true, 再配置好IMAGEMAGICK_PATH的真实物理路径.
+注意: win10因为路径问题仅支持Imagemagick 6.x, 请勿安装7.x， 否则会提示路径错误.
 
 # 郑重提醒:
 * 该项目代码仅供学习和测试使用, 如需在生产环境使用, 请自行负责所产生的问题与后果.
